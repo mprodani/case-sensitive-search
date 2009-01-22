@@ -1,0 +1,81 @@
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"> 
+  <head>
+<title>Case sensitive Google Search</title> 
+    <link type="text/css" rel="stylesheet" href="/css/main.css" />
+    <script src="/js/util.js"></script>
+    <script>
+    function updateSearchResult() {
+	    downloadUrl("/getsearchresults", "GET", null, onSearchResult);
+	}
+
+	
+
+	function sendSearch(form) {
+		document.getElementById("searchresult").innerHTML = "";
+		postparams = "searchtext=" + encodeURI(document.getElementById("searchtext").value) + 
+			"&resultslimit=" + encodeURI(document.getElementById("resultslimit").value) + 
+			"&googleresultslimit=" + encodeURI(document.getElementById("googleresultslimit").value);
+		//alert(postparams)
+		downloadUrl("/getsearchresults", "POST", postparams, onSearchResult);
+		//document.getElementById("searchtext").value = "";
+	}
+
+	function onSearchResult(responseText) {
+		document.getElementById("searchresult").innerHTML = responseText;
+		//document.getElementById("searchtext").value = "";
+	}
+
+	function setup() {
+		//the appengine can not spawn a sub process which could search for additional results
+		//hence it makes no sense to poll for aditional results
+		//see: http://code.google.com/appengine/docs/python/sandbox.html
+		//window.setInterval("updateSearchResult()", 2000);
+		//updateSearchResult();
+	}
+	
+	</script>
+  </head>
+  <body onload="setup()">
+  <h4>Case sensitive Google search<h4>
+  	{% if user %}
+    	<div>Logged in as {{ user.nickname }} - 
+    	  <a href="{{log_in_out_url}}">Log out</a>   <a href="/static/about.html">About</a></div>
+   	{% else %}
+    	<div><a href="{{log_in_out_url}}">Log in</a>   <a href="/static/about.html">About</a></div>
+    {% endif %}
+   
+	<div>
+    <form action="javascript:sendSearch();">
+      <div><input name="googlesearch" type="text" id="googlesearchtext" size="60"></input>
+      <div><input name="search" type="text" id="searchtext" size="60"></input>
+      <input type="submit" value="Search"/></div>
+		max. number of results:
+		<select id="resultslimit">
+		  <option value="1">1</option>
+		  <option value="2">2</option>
+		  <option value="4">4</option>
+		  <option value="8">8</option>
+		  <option value="12" selected="selected">12</option>
+		  <option value="16">16</option>
+		</select>
+		max. number of Google results that will be scanned:
+		<select id="googleresultslimit">
+		  <option value="1">8</option>
+		  <option value="2">16</option>
+		  <option value="4">32</option>
+		  <option value="8">64</option>
+		  <option value="16">128</option>
+		  <option value="32" selected="selected">256</option>
+		  <option value="64">512</option>
+		  <option value="128">1024</option>
+		</select>
+		
+    </form>
+    </div>
+
+	<div id="searchresult" style="padding:10px;background-color:white;width:97%;height:76%; overflow:auto;">
+	</div>
+	<div>Created by <a href="http://bpgergo.blogspot.com">bpgergo</a></div>
+  </body>
+</html>
