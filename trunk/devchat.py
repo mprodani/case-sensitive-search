@@ -21,6 +21,7 @@ _DEBUG = True
 class Search(db.Model):
   author = db.UserProperty()
   content = db.StringProperty()
+  filter = db.StringProperty()
   limit = db.IntegerProperty()
   googlelimit = db.IntegerProperty()
   date = db.DateTimeProperty(auto_now_add=True)
@@ -108,11 +109,12 @@ class SearchRequestHandler(BaseRequestHandler):
     search.author = users.get_current_user()
     search_term = self.request.get('searchtext')
     google_search_term = self.request.get('googlesearchtext')
-    logging.info('search_term:'+search_term)
-    logging.info('google_search_term:'+google_search_term)
+    #logging.info('search_term:'+search_term)
+    #logging.info('google_search_term:'+google_search_term)
     if not search_term:
       search_term = google_search_term
-    search.content = search_term
+    search.content = google_search_term
+    search.filter = search_term
     googleresultslimit = self.request.get('googleresultslimit')
     end = int(googleresultslimit) #20
     if end is None:
