@@ -38,16 +38,17 @@
   </head>
   <body onload="setup()">
   <h4>Case sensitive Google search<h4>
+  <!--
   	{% if user %}
     	<div>Logged in as {{ user.nickname }} - 
     	  <a href="{{log_in_out_url}}">Log out</a>   <a href="/static/about.html">About</a></div>
    	{% else %}
     	<div><a href="{{log_in_out_url}}">Log in</a>   <a href="/static/about.html">About</a></div>
     {% endif %}
-   
+   -->
 	<div>
     <form action="javascript:sendSearch();">
-      <div><input name="googlesearch" type="text" id="googlesearchtext" size="60"></input>
+      <!--div><input name="googlesearch" type="text" id="googlesearchtext" size="60"></input-->
       <div><input name="search" type="text" id="searchtext" size="60"></input>
       <input type="submit" value="Search"/></div>
 		max. number of results:
@@ -76,6 +77,6 @@
 
 	<div id="searchresult" style="padding:10px;background-color:white;width:97%;height:76%; overflow:auto;">
 	</div>
-	<div>Created by <a href="http://bpgergo.blogspot.com">bpgergo</a></div>
+	<div><a href="/static/about.html">About</a> | Created by <a href="http://bpgergo.blogspot.com">bpgergo</a> | <a href="http://code.google.com/p/case-sensitive-search">Project home (source)</a></div>
   </body>
 </html>
