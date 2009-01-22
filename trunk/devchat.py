@@ -107,6 +107,11 @@ class SearchRequestHandler(BaseRequestHandler):
     search = Search()
     search.author = users.get_current_user()
     search_term = self.request.get('searchtext')
+    google_search_term = self.request.get('googlesearchtext')
+    logging.info('search_term:'+search_term)
+    logging.info('google_search_term:'+google_search_term)
+    if not search_term:
+      search_term = google_search_term
     search.content = search_term
     googleresultslimit = self.request.get('googleresultslimit')
     end = int(googleresultslimit) #20
@@ -120,7 +125,7 @@ class SearchRequestHandler(BaseRequestHandler):
     search.put()
     start = 0
     ord = 0
-    q_search_term = urllib.urlencode({'q' : search_term.encode('utf-8')})
+    q_search_term = urllib.urlencode({'q' : google_search_term.encode('utf-8')})
     url = 'http://ajax.googleapis.com/ajax/services/search/web?v=1.0&%s&rsz=large&start=' % (q_search_term)
     urlset = set()
     for n in range(start, end):

@@ -14,6 +14,7 @@
 	function sendSearch(form) {
 		document.getElementById("searchresult").innerHTML = "";
 		postparams = "searchtext=" + encodeURI(document.getElementById("searchtext").value) + 
+			"&googlesearchtext=" + encodeURI(document.getElementById("googlesearchtext").value) + 
 			"&resultslimit=" + encodeURI(document.getElementById("resultslimit").value) + 
 			"&googleresultslimit=" + encodeURI(document.getElementById("googleresultslimit").value);
 		//alert(postparams)
@@ -37,7 +38,7 @@
 	</script>
   </head>
   <body onload="setup()">
-  <h4>Case sensitive Google search<h4>
+  <h4>Case sensitive Google search</h4>
   <!--
   	{% if user %}
     	<div>Logged in as {{ user.nickname }} - 
@@ -48,9 +49,8 @@
    -->
 	<div>
     <form action="javascript:sendSearch();">
-      <!--div><input name="googlesearch" type="text" id="googlesearchtext" size="60"></input-->
-      <div><input name="search" type="text" id="searchtext" size="60"></input>
-      <input type="submit" value="Search"/></div>
+      <div>Search Google with this term:<input name="googlesearch" type="text" id="googlesearchtext" size="65">  </input><input type="submit" value="Search"/></div>
+      <div>Filter results with this (same as above if omitted):<input name="search" type="text" id="searchtext" size="48"></input></div>
 		max. number of results:
 		<select id="resultslimit">
 		  <option value="1">1</option>
