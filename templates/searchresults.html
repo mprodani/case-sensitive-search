@@ -1,0 +1,7 @@
+{% for searchresult in searchresults %}
+  <li>
+  <b><a href="{{searchresult.url}}">{{ searchresult.title }}</a></b>
+  <div>{{ searchresult.content}}</div>
+  <div><cite>{{ searchresult.visibleUrl }}</cite></div>
+  </li>
+{% endfor %}
