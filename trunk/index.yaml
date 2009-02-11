@@ -30,7 +30,7 @@ indexes:
   - name: date
     direction: desc
 
-# Used 1258 times in query history.
+# Used 1311 times in query history.
 - kind: SearchResult
   properties:
   - name: searchref

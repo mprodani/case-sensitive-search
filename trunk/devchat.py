@@ -16,7 +16,7 @@ from google.appengine.ext.webapp import template
 #from google.appengine.api import memcache
 
 # Set the debug level
-_DEBUG = True
+_DEBUG = False
 
 class Search(db.Model):
   author = db.UserProperty()
@@ -97,10 +97,17 @@ class SearchRequestHandler(BaseRequestHandler):
   def renderSearchResults(self, search):
     searchresults = db.GqlQuery("SELECT * FROM SearchResult WHERE searchref = :1 ORDER BY searchresult_ord ASC ",
                                     search.key())
-    template_values = {
-      'searchterm': search.content,
-      'searchresults': searchresults
-    }
+    if searchresults.count():
+      template_values = {
+        'searchterm': search.content,
+        'searchresults': searchresults
+      }
+    else:
+      template_values = {
+        'searchterm': search.content,
+        'searchresults': "no results"
+      }
+
     return self.generate('searchresults.html', template_values)
 
 
@@ -125,59 +132,62 @@ class SearchRequestHandler(BaseRequestHandler):
       limit = 8
     search.limit = limit
     search.put()
-    start = 0
-    ord = 0
-    q_search_term = urllib.urlencode({'q' : google_search_term.encode('utf-8')})
-    url = 'http://ajax.googleapis.com/ajax/services/search/web?v=1.0&%s&rsz=large&start=' % (q_search_term)
-    urlset = set()
-    for n in range(start, end):
-      if ord > limit:
-        break
-      fetchurl = ''.join([url, str(n)])
-      #logging.info('FETCHURL:'+fetchurl)
-      result = urlfetch.fetch(fetchurl)
-      #logging.info('FETCHURL: fetched')
-      results = None
-      if result.status_code == 200:
-        json = simplejson.loads(result.content)
-        try:
-          #logging.info('jsonresult:'+str(json))
-          if json['responseDetails'] == 'out of range start':
-            break
-          if json['responseStatus'] == 200:
-            results = json['responseData']['results']
-        except:
-          logging.warning('json error, url:'+fetchurl+'; res:'+str(json))
-
-        if results:
-          search_term = search_term.replace('"', "")
-          search_terms = search_term.split()
-          for r in results:
-            ok = 0
-            for term in search_terms:
-              if (re.search(r'(>|\b)'+term+r'(\b|<)', r['content']) is not None) \
-              or (re.search(r'(>|\b)'+term+r'(\b|<)', r['titleNoFormatting']) is not None) \
-              or (re.search(r'(>|\b)'+term+r'(\b|<)', r['visibleUrl']) is not None):
-                ok = 1
-            if r['url'] not in urlset:
-              urlset.add(r['url'])
-            else:
+    try:
+      start = 0
+      ord = 0
+      q_search_term = urllib.urlencode({'q' : google_search_term.encode('utf-8')})
+      url = 'http://ajax.googleapis.com/ajax/services/search/web?v=1.0&%s&rsz=large&start=' % (q_search_term)
+      urlset = set()
+      for n in range(start, end):
+        if ord > limit:
+          break
+        fetchurl = ''.join([url, str(n)])
+        #logging.info('FETCHURL:'+fetchurl)
+        result = urlfetch.fetch(fetchurl)
+        #logging.info('FETCHURL: fetched')
+        results = None
+        if result.status_code == 200:
+          json = simplejson.loads(result.content)
+          try:
+            #logging.info('jsonresult:'+str(json))
+            if json['responseDetails'] == 'out of range start':
+              break
+            if json['responseStatus'] == 200:
+              results = json['responseData']['results']
+          except:
+            logging.warning('json error, url:'+fetchurl+'; res:'+str(json))
+          if results:
+            search_term = search_term.replace('"', "")
+            search_terms = search_term.split()
+            for r in results:
               ok = 0
-            if ok:
-              searchResult = SearchResult()
-              searchResult.searchref = search.key();
-              ord = ord + 1
-              searchResult.searchresult_ord = ord
-              searchResult.unescapedUrl = r['unescapedUrl']
-              searchResult.url = r['url']
-              searchResult.visibleUrl = r['visibleUrl']
-              if r['cacheUrl']:
-                searchResult.cacheUrl = r['cacheUrl']
-              searchResult.title = r['title']
-              searchResult.titleNoFormatting = r['titleNoFormatting']
-              searchResult.content = r['content']
-              searchResult.put()
-    self.renderSearchResults(search)
+              for term in search_terms:
+                if (re.search(r'(>|\b)'+term+r'(\b|<)', r['content']) is not None) \
+                or (re.search(r'(>|\b)'+term+r'(\b|<)', r['titleNoFormatting']) is not None) \
+                or (re.search(r'(>|\b)'+term+r'(\b|<)', r['visibleUrl']) is not None):
+                  ok = ok + 1
+              if r['url'] not in urlset:
+                urlset.add(r['url'])
+              else:
+                ok = 0
+              #logging.info('ok:'+str(ok))
+              #logging.info('len(search_terms):'+str(len(search_terms)))
+              if ok == len(search_terms):
+                searchResult = SearchResult()
+                searchResult.searchref = search.key();
+                ord = ord + 1
+                searchResult.searchresult_ord = ord
+                searchResult.unescapedUrl = r['unescapedUrl']
+                searchResult.url = r['url']
+                searchResult.visibleUrl = r['visibleUrl']
+                if r['cacheUrl']:
+                  searchResult.cacheUrl = r['cacheUrl']
+                searchResult.title = r['title']
+                searchResult.titleNoFormatting = r['titleNoFormatting']
+                searchResult.content = r['content']
+                searchResult.put()
+    finally:
+      self.renderSearchResults(search)
 
 
 # 
