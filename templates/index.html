@@ -1,68 +1,22 @@
 <html>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"> 
-  <head>
+<head>
 <title>Case sensitive Google Search</title> 
-    <link type="text/css" rel="stylesheet" href="/css/main.css" />
-    <script src="/js/util.js"></script>
-    <script>
-    function updateSearchResult() {
-	    downloadUrl("/getsearchresults", "GET", null, onSearchResult);
-	}
-
-	
-
-	function sendSearch(form) {
-		document.getElementById("searchresult").innerHTML = "";
-		postparams = "searchtext=" + encodeURI(document.getElementById("searchtext").value) + 
-			"&googlesearchtext=" + encodeURI(document.getElementById("googlesearchtext").value) + 
-			"&resultslimit=" + encodeURI(document.getElementById("resultslimit").value) + 
-			"&googleresultslimit=" + encodeURI(document.getElementById("googleresultslimit").value);
-		//alert(postparams)
-		downloadUrl("/getsearchresults", "POST", postparams, onSearchResult);
-		//document.getElementById("searchtext").value = "";
-	}
-
-	function onSearchResult(responseText) {
-		document.getElementById("searchresult").innerHTML = responseText;
-		//document.getElementById("searchtext").value = "";
-	}
-
-	function setup() {
-		//the appengine can not spawn a sub process which could search for additional results
-		//hence it makes no sense to poll for aditional results
-		//see: http://code.google.com/appengine/docs/python/sandbox.html
-		//window.setInterval("updateSearchResult()", 2000);
-		//updateSearchResult();
-	}
-	
-	</script>
-  </head>
+<link type="text/css" rel="stylesheet" href="/css/main.css" />
+</head>
   <body onload="setup()">
-  <h4>Case sensitive Google search</h4>
-  <!--
-  	{% if user %}
-    	<div>Logged in as {{ user.nickname }} - 
-    	  <a href="{{log_in_out_url}}">Log out</a>   <a href="/static/about.html">About</a></div>
-   	{% else %}
-    	<div><a href="{{log_in_out_url}}">Log in</a>   <a href="/static/about.html">About</a></div>
-    {% endif %}
-   -->
+  <h3> Case sensitive Google search </h3>
 	<div>
-    <form action="javascript:sendSearch();">
-      <div>Search Google with this term:<input name="googlesearch" type="text" id="googlesearchtext" size="65">  </input><input type="submit" value="Search"/></div>
-      <div>Filter results with this (same as above if omitted):<input name="search" type="text" id="searchtext" size="48"></input></div>
-		max. number of results:
-		<select id="resultslimit">
-		  <option value="1">1</option>
-		  <option value="2">2</option>
-		  <option value="4">4</option>
-		  <option value="8">8</option>
-		  <option value="12" selected="selected">12</option>
-		  <option value="16">16</option>
-		</select>
-		max. number of Google results that will be scanned:
-		<select id="googleresultslimit">
-		  <option value="1">8</option>
+    <form action="/search">
+    
+      <div>Search Google with this term:
+		<input name="q" type="text" id="q" size="65" value="{{ query }}"></input>
+        <input name="btn" type="submit" id="btn" value="Start"/></div>
+      <div>cs filter (same as above if omitted):
+		<input name="f" type="text" id="f" size="48" value="{{ filter }}"></input>
+      </div>
+		limit:
+		<select id="l">
 		  <option value="2">16</option>
 		  <option value="4">32</option>
 		  <option value="8">64</option>
@@ -72,12 +26,25 @@
 		  <option value="128">1024</option>
 		  <option value="256">2048</option>
 		  <option value="512" selected="selected">4096</option>
+		  <option value="1024">8192</option>
+		  <option value="2048">16384</option>
 		</select>
-		
+		start from: <input name="s" type="text" id="s" size="10" value="{{ startfrom }}"></input>
+		<!-- 
+		next: <input name="n" type="text" id="n" size="10" value="{{ next }}"></input>
+		<input name="nextsearch" type="submit" id="nextsearch" value="Next"/></div>
+		 -->
     </form>
     </div>
 
-	<div id="searchresult" style="padding:10px;background-color:white;width:97%;height:76%; overflow:auto;">
+	<div id="searchresult" style="padding:10px;background-color:white;width:98%;height:70%; overflow:auto;">
+	{% for searchresult in searchresults %}
+	  <li>
+	{{searchresult.absoluteOrd }}  <a href="{{searchresult.url}}">{{ searchresult.title }}</a>
+	<div>{{ searchresult.content}}</div>
+	<div><cite>{{ searchresult.visibleUrl }}</cite> <a href="{{ searchresult.cacheUrl }}">Cached</a><div>
+	  </li>
+	{% endfor %}
 	</div>
 	<div><a href="/static/about.html">About</a> | Created by <a href="http://bpgergo.blogspot.com">bpgergo</a> | <a href="http://code.google.com/p/case-sensitive-search">Project home (source)</a></div>
   </body>
