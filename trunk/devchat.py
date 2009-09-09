@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# encoding: utf-8
 import logging
 import cgi
 import os
@@ -6,6 +8,7 @@ import simplejson
 import sets
 import re
 from time import sleep
+import datetime
 
 from google.appengine.api import urlfetch
 from google.appengine.api import users
@@ -13,21 +16,35 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext import db
 from google.appengine.ext.webapp import template
-#from google.appengine.api import memcache
+
+import datastore_cache
+datastore_cache.DatastoreCachingShim.Install()
 
 # Set the debug level
 _DEBUG = False
+_SEARCHPAGESIZE = 8
+_GOOGLELIMIT = 512
+_PAGELIMIT = 10
+_KEEPSEARCHESFORDAYS = 3
+_AJAXAPIBASEURL = 'http://ajax.googleapis.com/ajax/services/search/web?v=1.0&%s&rsz=large&start='
+_ENCODING = 'utf-8'
 
 class Search(db.Model):
-  author = db.UserProperty()
-  content = db.StringProperty()
-  filter = db.StringProperty()
-  limit = db.IntegerProperty()
-  googlelimit = db.IntegerProperty()
-  date = db.DateTimeProperty(auto_now_add=True)
+  """Search entity
+  """
+  #author = db.UserProperty()
+  content = db.StringProperty() #search google with this term
+  filter = db.StringProperty() #filter results case sensitively with these words
+  limit = db.IntegerProperty() #stop search after found <limit> number of results; this is 10
+  googlelimit = db.IntegerProperty() #scan through maximum <googlelimit> number of google results; probably will stop earlier when <limit> number of results have been found
+  date = db.DateTimeProperty(auto_now_add=True) 
+  start = db.IntegerProperty() #start from this result when scanning through google results
+  lastresultOrd = db.IntegerProperty()  #this was the order of the last result
 
 #http://code.google.com/apis/ajaxsearch/documentation/reference.html#_intro_fonje
 class SearchResult(db.Model):
+  """Search result entity
+  """
   searchref = db.ReferenceProperty(Search)
   searchresult_ord = db.IntegerProperty()
   unescapedUrl = db.LinkProperty()
@@ -38,44 +55,24 @@ class SearchResult(db.Model):
   titleNoFormatting = db.StringProperty()
   content = db.StringProperty()
   date = db.DateTimeProperty(auto_now_add=True)
+  absoluteOrd = db.IntegerProperty()
 
 class BaseRequestHandler(webapp.RequestHandler):
   """Base request handler extends webapp.Request handler
-
      It defines the generate method, which renders a Django template
      in response to a web request
   """
 
   def generate(self, template_name, template_values={}):
-    """Generate takes renders and HTML template along with values
+    """Generate renders and HTML template along with values
        passed to that template
-
        Args:
          template_name: A string that represents the name of the HTML template
          template_values: A dictionary that associates objects with a string
            assigned to that object to call in the HTML template.  The defualt
            is an empty dictionary.
     """
-    # We check if there is a current user and generate a login or logout URL
-    user = users.get_current_user()
-
-    if user:
-      log_in_out_url = users.create_logout_url('/')
-      url = users.create_logout_url(self.request.uri)
-      url_linktext = 'Logout'
-    else:
-      log_in_out_url = users.create_login_url(self.request.path)
-      url = users.create_login_url(self.request.uri)
-      url_linktext = 'Login'
-
-
-    # We'll display the user name if available and the URL on all pages
-    values = {
-      'url': url,
-      'url_linktext': url_linktext,
-      'user': user, 
-      'log_in_out_url': log_in_out_url
-      }
+    values = {}
     values.update(template_values)
 
     # Construct the path to the template
@@ -86,155 +83,198 @@ class BaseRequestHandler(webapp.RequestHandler):
     self.response.out.write(template.render(path, values, debug=_DEBUG))
     
 class MainRequestHandler(BaseRequestHandler):
+  """Main request handler extends BaseRequestHandler
+     Handles main page request that is index.html
+  """
+
   def get(self):
-
+    """At this moment this returns static index.html
+    """
     template_values = {}
-
     self.generate('index.html', template_values);
 
 
 class SearchRequestHandler(BaseRequestHandler):
-  def renderSearchResults(self, search):
-    searchresults = db.GqlQuery("SELECT * FROM SearchResult WHERE searchref = :1 ORDER BY searchresult_ord ASC ",
-                                    search.key())
-    if searchresults.count():
-      template_values = {
-        'searchterm': search.content,
-        'searchresults': searchresults
-      }
+  """Main request handler extends BaseRequestHandler
+     Handles search page request that is also based on index.html template.
+     Two things are filled in the template:
+     1) the search params are put back to the form inputs
+     2) the search results added too
+  """
+  
+  def renderSearchResults(self, search, searchresults):
+    """Two groups of things are filled in the template:
+     1) the search arguments are put back to the form inputs
+     2) the search results added too
+    """  
+    
+    
+    template_values = {
+      'startfrom': search.start, #/ _SEARCHPAGESIZE,
+      'next': search.lastresultOrd,
+      'query': search.content.replace('"', '&quot;'),
+      'filter': search.filter.replace('"', '&quot;'),
+    }    
+    if searchresults:
+      template_values.update({ 'searchresults': searchresults })
     else:
-      template_values = {
-        'searchterm': search.content,
-        'searchresults': "no results"
-      }
+      template_values.update({ 'searchresults': "no results" })  
+    return self.generate('index.html', template_values)
 
-    return self.generate('searchresults.html', template_values)
-
-
-  def post(self):
+  def saveSearch(self):
+    """Save a Search entity into the datastore
+    """
     search = Search()
-    search.author = users.get_current_user()
-    search_term = self.request.get('searchtext')
-    google_search_term = self.request.get('googlesearchtext')
-    #logging.info('search_term:'+search_term)
-    #logging.info('google_search_term:'+google_search_term)
-    if not search_term:
-      search_term = google_search_term
-    search.content = google_search_term
-    search.filter = search_term
-    googleresultslimit = self.request.get('googleresultslimit')
-    end = int(googleresultslimit) #20
-    if end is None:
-      end = 16
-    search.googlelimit = end
-    limit = int(self.request.get('resultslimit')) #12
-    if limit is None:
-      limit = 8
-    search.limit = limit
+    startfrom = self.request.get('s')
+    if startfrom:
+      search.start = int(startfrom) #/ _SEARCHPAGESIZE
+    else:
+      search.start = 0
+    logging.info('save search.start:'+str(search.start))
+    search.lastresultOrd = 0
+    #search.author = users.get_current_user()
+    search.content = self.request.get('q')
+    logging.info('save search.content:'+search.content)    
+    search.filter = self.request.get('f')
+    if not len(search.filter) or search.filter is None or search.filter == '':
+      logging.info('put search.content into search.filter!')
+      search.filter = search.content
+    logging.info('save search.filter:'+search.filter)    
+    googleresultslimit = self.request.get('l')
+    if googleresultslimit is None or googleresultslimit == '':
+      search.googlelimit = _GOOGLELIMIT
+    else:
+      search.googlelimit = int(googleresultslimit)
+    logging.info('save search.googlelimit:'+str(search.googlelimit))    
+    search.limit = _PAGELIMIT
     search.put()
-    try:
-      start = 0
-      ord = 0
-      q_search_term = urllib.urlencode({'q' : google_search_term.encode('utf-8')})
-      url = 'http://ajax.googleapis.com/ajax/services/search/web?v=1.0&%s&rsz=large&start=' % (q_search_term)
-      urlset = set()
-      for n in range(start, end):
-        if ord > limit:
-          break
-        fetchurl = ''.join([url, str(n)])
-        #logging.info('FETCHURL:'+fetchurl)
-        result = urlfetch.fetch(fetchurl)
-        #logging.info('FETCHURL: fetched')
-        results = None
-        if result.status_code == 200:
-          json = simplejson.loads(result.content)
-          try:
-            #logging.info('jsonresult:'+str(json))
-            if json['responseDetails'] == 'out of range start':
-              break
-            if json['responseStatus'] == 200:
-              results = json['responseData']['results']
-          except:
-            logging.warning('json error, url:'+fetchurl+'; res:'+str(json))
-          if results:
-            search_term = search_term.replace('"', "")
-            search_terms = search_term.split()
-            for r in results:
+    return search
+
+  def saveSearchResult(self, search, ord, absoluteOrd, r):
+    """Save a Search result entity into the datastore
+    """
+    searchResult = SearchResult()
+    searchResult.searchref = search.key();
+    searchResult.searchresult_ord = ord
+    searchResult.absoluteOrd = absoluteOrd
+    searchResult.unescapedUrl = r['unescapedUrl']
+    searchResult.url = r['url']
+    searchResult.visibleUrl = r['visibleUrl']
+    if r['cacheUrl']:
+      searchResult.cacheUrl = r['cacheUrl']
+    searchResult.title = r['title']
+    searchResult.titleNoFormatting = r['titleNoFormatting']
+    searchResult.content = r['content']
+    searchResult.put()
+    return searchResult
+
+  def doSearch(self, search):
+    """Do an actual search that is fetch google search result pages using Google Ajax search API
+       and filter Google's results case sensitively
+       Filtered results will be saved and returned in a list  
+    """  
+    searchResults = []
+    search_terms = search.filter.replace('"', "").split()
+    logging.info('search_terms:'+str(search_terms))
+    if not len(search_terms):
+      logging.info('no search_terms, return empty list')
+      return searchResults  
+    start = search.start / _SEARCHPAGESIZE
+    ord = 0
+    absolute_ord = 0
+    q_search_term = urllib.urlencode({'q' : search.content.encode(_ENCODING)})
+    url = _AJAXAPIBASEURL % (q_search_term)
+    urlset = set()
+    for n in range(start, search.googlelimit):
+      fetchurl = ''.join([url, str(n)])
+      logging.info('FETCHURL:'+fetchurl)
+      result = urlfetch.fetch(fetchurl)
+      #logging.info('FETCHURL: fetched')
+      results = None
+      if result.status_code == 200:
+        json = simplejson.loads(result.content)
+        try:
+          #logging.info('jsonresult:'+str(json))
+          if json['responseDetails'] == 'out of range start':
+            break
+          if json['responseStatus'] == 200:
+            results = json['responseData']['results']
+        except:
+          logging.warning('json error, url:'+fetchurl+'; res:'+str(json))
+        if results:
+          for r in results:
+            absolute_ord = absolute_ord + 1
+            ok = 0
+            for term in search_terms:
+              if (re.search(r'(>|\b)'+term+r'(\b|<)', r['content']) is not None) \
+              or (re.search(r'(>|\b)'+term+r'(\b|<)', r['titleNoFormatting']) is not None) \
+              or (re.search(r'(>|\b)'+term+r'(\b|<)', r['visibleUrl']) is not None):
+                ok = ok + 1
+            if r['url'] not in urlset:
+              urlset.add(r['url'])
+            else:
               ok = 0
-              for term in search_terms:
-                if (re.search(r'(>|\b)'+term+r'(\b|<)', r['content']) is not None) \
-                or (re.search(r'(>|\b)'+term+r'(\b|<)', r['titleNoFormatting']) is not None) \
-                or (re.search(r'(>|\b)'+term+r'(\b|<)', r['visibleUrl']) is not None):
-                  ok = ok + 1
-              if r['url'] not in urlset:
-                urlset.add(r['url'])
-              else:
-                ok = 0
-              #logging.info('ok:'+str(ok))
-              #logging.info('len(search_terms):'+str(len(search_terms)))
-              if ok == len(search_terms):
-                searchResult = SearchResult()
-                searchResult.searchref = search.key();
-                ord = ord + 1
-                searchResult.searchresult_ord = ord
-                searchResult.unescapedUrl = r['unescapedUrl']
-                searchResult.url = r['url']
-                searchResult.visibleUrl = r['visibleUrl']
-                if r['cacheUrl']:
-                  searchResult.cacheUrl = r['cacheUrl']
-                searchResult.title = r['title']
-                searchResult.titleNoFormatting = r['titleNoFormatting']
-                searchResult.content = r['content']
-                searchResult.put()
+            logging.info('ok:'+str(ok)+' <len(search_terms):'+str(len(search_terms)))
+            if ok == len(search_terms):
+              ord = ord + 1
+              logging.info('save:'+str(r)) 
+              searchResults.append(self.saveSearchResult(search, ord, absolute_ord, r))
+      else:
+        logging.warning('no response, url:'+fetchurl+'; res status code:'+str(result.status_code) + "; res.content:"+result.content)
+      if ord >= search.limit:
+        search.lastresultOrd = absolute_ord
+        search.save() 
+        break
+    return searchResults
+
+  def getSearchResultsFromMemoryOrDataStore(self, searchRequest):
+    """Try find a similar search to the actual request which is not too old.
+       If found, then return the results from the datastore
+    """
+    searchresults = []
+    now = datetime.datetime.now()
+    searches = db.GqlQuery("SELECT * from Search WHERE content = :1 AND filter = :2 AND start = :3 AND date <= DATETIME("+str(now.year)+", "+str(now.month)+", "+str(now.day)+", "+str(now.hour)+", "+str(now.minute)+", "+str(now.second+1)+") AND date > DATETIME("+str(now.year)+", "+str(now.month)+", "+str(now.day-_KEEPSEARCHESFORDAYS)+", "+str(now.hour)+", "+str(now.minute)+", "+str(now.second)+") ORDER BY date DESC", 
+                                                      searchRequest.content,searchRequest.filter,searchRequest.start)    
+    tres = 0
+    search = None
+    searchresultsdb = None
+    for s in searches:
+      if s.lastresultOrd > tres:
+        search = s
+      
+    
+    if search:
+      logging.info('WOW searchresults found in datastore')   
+      searchresultsdb = db.GqlQuery("SELECT * FROM SearchResult WHERE searchref = :1 ORDER BY searchresult_ord ASC ",
+                                  search.key())
+    if searchresultsdb:
+      for searchresult in searchresultsdb:
+        searchresults.append(searchresult) 
+    return searchresults 
+
+    
+  def get(self):
+    """Here is the main idea: Lets try not to do an actual search.
+       Instead, try to find `good´ results either in memory (memcache) or in datastore.
+       If not found, then do an actual search.
+       Finally render the results 
+    """  
+    searchrequest = self.saveSearch()
+    searchresults = []
+    try:
+      #will return <class 'google.appengine.ext.db.GqlQuery'>
+      searchresults = self.getSearchResultsFromMemoryOrDataStore(searchrequest)
+      logging.info("str(len(searchresults from db)):"+str(len(searchresults)))
+      if not len(searchresults):
+        #will return List
+        searchresults = self.doSearch(searchrequest)
     finally:
-      self.renderSearchResults(search)
+      self.renderSearchResults(searchrequest, searchresults)
 
 
-# 
-#class ChatsRequestHandler(BaseRequestHandler):
-#  def renderChats(self):
-#    greetings_query = Greeting.all().order('date')
-#    greetings = greetings_query.fetch(1000)
-
-# #    template_values = {
-#      'greetings': greetings,
-#    }
-#    return self.generate('chats.html', template_values)
-#      
-#  def getChats(self, useCache=True):
-#    if useCache is False:
-#      greetings = self.renderChats()
-#      if not memcache.set("chat", greetings, 10):
-#        logging.error("Memcache set failed:")
-#      return greetings
-#      
-#    greetings = memcache.get("chats")
-#    if greetings is not None:
-#      return greetings
-#    else:
-#      greetings = self.renderChats()
-#      if not memcache.set("chat", greetings, 10):
-#        logging.error("Memcache set failed:")
-#      return greetings
-#    
-#  def get(self):
-#    self.getChats()
-
-# #  def post(self):
-#    greeting = Greeting()
-#
-#    if users.get_current_user():
-#      greeting.author = users.get_current_user()
-
-#    greeting.content = self.request.get('content')
-#    greeting.put()
-#    
-#    self.getChats(False)
-
-#    
 application = webapp.WSGIApplication(
                                      [('/', MainRequestHandler),
-                                      ('/getsearchresults', SearchRequestHandler)],
+                                      ('/search', SearchRequestHandler)],
                                      debug=True)
 
 def main():

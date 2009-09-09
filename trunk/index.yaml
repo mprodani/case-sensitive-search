@@ -16,10 +16,27 @@ indexes:
   - name: date
     direction: desc
 
-# Used 1218 times in query history.
+# Unused in query history -- copied from input.
 - kind: Search
   properties:
   - name: author
+  - name: date
+    direction: desc
+
+# Used 7 times in query history.
+- kind: Search
+  properties:
+  - name: content
+  - name: filter
+  - name: start
+  - name: date
+
+# Used 39 times in query history.
+- kind: Search
+  properties:
+  - name: content
+  - name: filter
+  - name: start
   - name: date
     direction: desc
 
@@ -30,7 +47,7 @@ indexes:
   - name: date
     direction: desc
 
-# Used 1337 times in query history.
+# Used 85 times in query history.
 - kind: SearchResult
   properties:
   - name: searchref
