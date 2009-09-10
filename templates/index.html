@@ -5,39 +5,43 @@
 <link type="text/css" rel="stylesheet" href="/css/main.css" />
 </head>
   <body onload="setup()">
-  <h3> Case sensitive Google search </h3>
-	<div>
-    <form action="/search">
-    
-      <div>Search Google with this term:
-		<input name="q" type="text" id="q" size="65" value="{{ query }}"></input>
-        <input name="btn" type="submit" id="btn" value="Start"/></div>
-      <div>cs filter (same as above if omitted):
-		<input name="f" type="text" id="f" size="48" value="{{ filter }}"></input>
-      </div>
-		limit:
-		<select id="l">
-		  <option value="2">16</option>
-		  <option value="4">32</option>
-		  <option value="8">64</option>
-		  <option value="16">128</option>
-		  <option value="32">256</option>
-		  <option value="64">512</option>
-		  <option value="128">1024</option>
-		  <option value="256">2048</option>
-		  <option value="512" selected="selected">4096</option>
-		  <option value="1024">8192</option>
-		  <option value="2048">16384</option>
-		</select>
-		start from: <input name="s" type="text" id="s" size="10" value="{{ startfrom }}"></input>
-		<!-- 
-		next: <input name="n" type="text" id="n" size="10" value="{{ next }}"></input>
-		<input name="nextsearch" type="submit" id="nextsearch" value="Next"/></div>
-		 -->
-    </form>
+  <h3> Case sensitive (CS) Google search </h3>
+  <div>
+	<table cellspacing="0">
+		<tr>
+    		<form name="searchform" id="searchform" action="/search">
+			<td>Query:<input name="q" type="text" id="q" size="100" value="{{ query }}"></input></td>
+    		<td><input name="btn" type="submit" id="btn" value="Start"/></td>
+    	</tr>
+		<tr>
+			<td>Filter:<input name="f" type="text" id="f" size="45" value="{{ filter }}"></input>
+			Limit:<select id="l">
+			  <option value="2">16</option>
+			  <option value="4">32</option>
+			  <option value="8">64</option>
+			  <option value="16">128</option>
+			  <option value="32">256</option>
+			  <option value="64">512</option>
+			  <option value="128">1024</option>
+			  <option value="256">2048</option>
+			  <option value="512" selected="selected">4096</option>
+			  <option value="1024">8192</option>
+			  <option value="2048">16384</option>
+			</select>
+			From: <input name="s" type="text" id="s" size="6" value="{{ startfrom }}"></input>
+			To: {{ next }}
+    		</form>
+    		</td>
+    		<td>
+			    <form action="javascript:document.getElementById('s').value = document.getElementById('n').value; document.getElementById('searchform').submit();">
+			      <input name="n" type="hidden" id="n" value="{{ next }}"></input>
+			      <input name="nextbtn" type="submit" id="nextbtn" value="Next"/></div>
+			    </form>
+    		</td>
+    	</tr>    
+    </table>
     </div>
-
-	<div id="searchresult" style="padding:10px;background-color:white;width:98%;height:70%; overflow:auto;">
+	<div id="searchresult" >
 	{% for searchresult in searchresults %}
 	  <li>
 	{{searchresult.absoluteOrd }}  <a href="{{searchresult.url}}">{{ searchresult.title }}</a>
@@ -46,6 +50,7 @@
 	  </li>
 	{% endfor %}
 	</div>
+	<br/>
 	<div><a href="/static/about.html">About</a> | Created by <a href="http://bpgergo.blogspot.com">bpgergo</a> | <a href="http://code.google.com/p/case-sensitive-search">Project home (source)</a></div>
   </body>
 </html>

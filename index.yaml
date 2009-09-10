@@ -23,7 +23,7 @@ indexes:
   - name: date
     direction: desc
 
-# Used 7 times in query history.
+# Unused in query history -- copied from input.
 - kind: Search
   properties:
   - name: content
@@ -31,7 +31,7 @@ indexes:
   - name: start
   - name: date
 
-# Used 39 times in query history.
+# Used 38 times in query history.
 - kind: Search
   properties:
   - name: content
@@ -47,7 +47,7 @@ indexes:
   - name: date
     direction: desc
 
-# Used 85 times in query history.
+# Used 24 times in query history.
 - kind: SearchResult
   properties:
   - name: searchref
