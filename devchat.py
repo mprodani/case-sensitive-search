@@ -143,6 +143,7 @@ class SearchRequestHandler(BaseRequestHandler):
       search.filter = search.content
     #logging.info('save search.filter:'+search.filter)    
     googleresultslimit = self.request.get('l')
+    logging.info("save search googleresultslimit:"+googleresultslimit)
     if googleresultslimit is None or googleresultslimit == '':
       search.googlelimit = _GOOGLELIMIT
     else:
@@ -183,13 +184,16 @@ class SearchRequestHandler(BaseRequestHandler):
       return searchResults  
     start = search.start / _SEARCHPAGESIZE
     ord = 0
+    FUCK = 0
     absolute_ord = search.start
     q_search_term = urllib.urlencode({'q' : search.content.encode(_ENCODING)})
     url = _AJAXAPIBASEURL % (q_search_term)
     urlset = set()
+    logging.info("search range start, search.googlelimit::"+str(start)+"-"+str(search.googlelimit))
     for n in range(start, search.googlelimit):
+      FUCK = FUCK + 1
       fetchurl = ''.join([url, str(n)])
-      #logging.info('FETCHURL:'+fetchurl)
+      logging.info('FUCK > FETCHURL:'+str(FUCK)+" > "+fetchurl)
       result = urlfetch.fetch(fetchurl)
       #logging.info('FETCHURL: fetched')
       results = None
@@ -198,6 +202,7 @@ class SearchRequestHandler(BaseRequestHandler):
         try:
           #logging.info('jsonresult:'+str(json))
           if json['responseDetails'] == 'out of range start':
+            logging.warning('json error out of range start, url:'+fetchurl+'; res:'+str(json))  
             break
           if json['responseStatus'] == 200:
             results = json['responseData']['results']
@@ -224,10 +229,11 @@ class SearchRequestHandler(BaseRequestHandler):
       else:
         logging.warning('no response, url:'+fetchurl+'; res status code:'+str(result.status_code) + "; res.content:"+result.content)
       if ord >= search.limit:
-        #logging.info("re save search.lastresultOrd :"+str(absolute_ord))  
-        search.lastresultOrd = absolute_ord
-        search.save() 
         break
+    
+    logging.info("re save search.lastresultOrd :"+str(absolute_ord))  
+    search.lastresultOrd = absolute_ord
+    search.save() 
     return searchResults
 
   def getSearchResultsFromMemoryOrDataStore(self, searchRequest):
@@ -236,7 +242,7 @@ class SearchRequestHandler(BaseRequestHandler):
     """
     searchresults = []
     now = datetime.datetime.now()
-    searches = db.GqlQuery("SELECT * from Search WHERE content = :1 AND filter = :2 AND start = :3 AND date <= DATETIME("+str(now.year)+", "+str(now.month)+", "+str(now.day)+", "+str(now.hour)+", "+str(now.minute)+", "+str(now.second+1)+") AND date > DATETIME("+str(now.year)+", "+str(now.month)+", "+str(now.day-_KEEPSEARCHESFORDAYS)+", "+str(now.hour)+", "+str(now.minute)+", "+str(now.second)+") ORDER BY date DESC", 
+    searches = db.GqlQuery("SELECT * from Search WHERE content = :1 AND filter = :2 AND start = :3 AND date <= DATETIME("+str(now.year)+", "+str(now.month)+", "+str(now.day)+", "+str(now.hour)+", "+str(now.minute)+", "+str(now.second)+") AND date > DATETIME("+str(now.year)+", "+str(now.month)+", "+str(now.day-_KEEPSEARCHESFORDAYS)+", "+str(now.hour)+", "+str(now.minute)+", "+str(now.second)+") ORDER BY date DESC", 
                                                       searchRequest.content,searchRequest.filter,searchRequest.start)    
     tres = 0
     search = None
