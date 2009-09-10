@@ -108,7 +108,7 @@ class SearchRequestHandler(BaseRequestHandler):
      2) the search results added too
     """  
     
-    logging.info("render, search.lastresultOrd:"+str(search.lastresultOrd))
+    #logging.info("render, search.lastresultOrd:"+str(search.lastresultOrd))
     template_values = {
       'startfrom': search.start, #/ _SEARCHPAGESIZE,
       'query': search.content.replace('"', '&quot;'),
@@ -132,22 +132,22 @@ class SearchRequestHandler(BaseRequestHandler):
       search.start = int(startfrom) #/ _SEARCHPAGESIZE
     else:
       search.start = 0
-    logging.info('save search.start:'+str(search.start))
+    #logging.info('save search.start:'+str(search.start))
     search.lastresultOrd = 0
     #search.author = users.get_current_user()
     search.content = self.request.get('q')
-    logging.info('save search.content:'+search.content)    
+    #logging.info('save search.content:'+search.content)    
     search.filter = self.request.get('f')
     if not len(search.filter) or search.filter is None or search.filter == '':
-      logging.info('put search.content into search.filter!')
+      #logging.info('put search.content into search.filter!')
       search.filter = search.content
-    logging.info('save search.filter:'+search.filter)    
+    #logging.info('save search.filter:'+search.filter)    
     googleresultslimit = self.request.get('l')
     if googleresultslimit is None or googleresultslimit == '':
       search.googlelimit = _GOOGLELIMIT
     else:
       search.googlelimit = int(googleresultslimit)
-    logging.info('save search.googlelimit:'+str(search.googlelimit))    
+    #logging.info('save search.googlelimit:'+str(search.googlelimit))    
     search.limit = _PAGELIMIT
     search.put()
     return search
@@ -177,9 +177,9 @@ class SearchRequestHandler(BaseRequestHandler):
     """  
     searchResults = []
     search_terms = search.filter.replace('"', "").split()
-    logging.info('search_terms:'+str(search_terms))
+    #logging.info('search_terms:'+str(search_terms))
     if not len(search_terms):
-      logging.info('no search_terms, return empty list')
+      #logging.info('no search_terms, return empty list')
       return searchResults  
     start = search.start / _SEARCHPAGESIZE
     ord = 0
@@ -189,7 +189,7 @@ class SearchRequestHandler(BaseRequestHandler):
     urlset = set()
     for n in range(start, search.googlelimit):
       fetchurl = ''.join([url, str(n)])
-      logging.info('FETCHURL:'+fetchurl)
+      #logging.info('FETCHURL:'+fetchurl)
       result = urlfetch.fetch(fetchurl)
       #logging.info('FETCHURL: fetched')
       results = None
@@ -216,15 +216,15 @@ class SearchRequestHandler(BaseRequestHandler):
               urlset.add(r['url'])
             else:
               ok = 0
-            logging.info('ok:'+str(ok)+' <len(search_terms):'+str(len(search_terms)))
+            #logging.info('ok:'+str(ok)+' <len(search_terms):'+str(len(search_terms)))
             if ok == len(search_terms):
               ord = ord + 1
-              logging.info('save:'+str(r)) 
+              #logging.info('save:'+str(r)) 
               searchResults.append(self.saveSearchResult(search, ord, absolute_ord, r))
       else:
         logging.warning('no response, url:'+fetchurl+'; res status code:'+str(result.status_code) + "; res.content:"+result.content)
       if ord >= search.limit:
-        logging.info("re save search.lastresultOrd :"+str(absolute_ord))  
+        #logging.info("re save search.lastresultOrd :"+str(absolute_ord))  
         search.lastresultOrd = absolute_ord
         search.save() 
         break
@@ -248,7 +248,7 @@ class SearchRequestHandler(BaseRequestHandler):
       
     
     if search:
-      logging.info('WOW searchresults found in datastore')   
+      #logging.info('WOW searchresults found in datastore')   
       searchresultsdb = db.GqlQuery("SELECT * FROM SearchResult WHERE searchref = :1 ORDER BY searchresult_ord ASC ",
                                   search.key())
     if searchresultsdb:
@@ -266,11 +266,10 @@ class SearchRequestHandler(BaseRequestHandler):
     searchrequest = self.saveSearch()
     searchresults = []
     try:
-      #will return <class 'google.appengine.ext.db.GqlQuery'>
       searchresults = self.getSearchResultsFromMemoryOrDataStore(searchrequest)
-      logging.info("str(len(searchresults from db)):"+str(len(searchresults)))
+      #logging.info("str(len(searchresults from db)):"+str(len(searchresults)))
       if len(searchresults) < 1:
-        logging.info("call do search")  
+        #logging.info("call do search")  
         searchresults = self.doSearch(searchrequest)
     finally:
       self.renderSearchResults(searchrequest, searchresults)
