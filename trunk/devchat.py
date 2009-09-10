@@ -108,15 +108,17 @@ class SearchRequestHandler(BaseRequestHandler):
      2) the search results added too
     """  
     
-    
+    logging.info("render, search.lastresultOrd:"+str(search.lastresultOrd))
     template_values = {
       'startfrom': search.start, #/ _SEARCHPAGESIZE,
-      'next': search.lastresultOrd,
       'query': search.content.replace('"', '&quot;'),
       'filter': search.filter.replace('"', '&quot;'),
     }    
     if searchresults:
-      template_values.update({ 'searchresults': searchresults })
+      template_values.update({ 'searchresults': searchresults, 
+                               'next': searchresults[len(searchresults)-1].absoluteOrd  #search.lastresultOrd,
+                               })
+      
     else:
       template_values.update({ 'searchresults': "no results" })  
     return self.generate('index.html', template_values)
@@ -181,7 +183,7 @@ class SearchRequestHandler(BaseRequestHandler):
       return searchResults  
     start = search.start / _SEARCHPAGESIZE
     ord = 0
-    absolute_ord = 0
+    absolute_ord = search.start
     q_search_term = urllib.urlencode({'q' : search.content.encode(_ENCODING)})
     url = _AJAXAPIBASEURL % (q_search_term)
     urlset = set()
@@ -222,6 +224,7 @@ class SearchRequestHandler(BaseRequestHandler):
       else:
         logging.warning('no response, url:'+fetchurl+'; res status code:'+str(result.status_code) + "; res.content:"+result.content)
       if ord >= search.limit:
+        logging.info("re save search.lastresultOrd :"+str(absolute_ord))  
         search.lastresultOrd = absolute_ord
         search.save() 
         break
@@ -240,6 +243,7 @@ class SearchRequestHandler(BaseRequestHandler):
     searchresultsdb = None
     for s in searches:
       if s.lastresultOrd > tres:
+        tres = s.lastresultOrd
         search = s
       
     
@@ -265,8 +269,8 @@ class SearchRequestHandler(BaseRequestHandler):
       #will return <class 'google.appengine.ext.db.GqlQuery'>
       searchresults = self.getSearchResultsFromMemoryOrDataStore(searchrequest)
       logging.info("str(len(searchresults from db)):"+str(len(searchresults)))
-      if not len(searchresults):
-        #will return List
+      if len(searchresults) < 1:
+        logging.info("call do search")  
         searchresults = self.doSearch(searchrequest)
     finally:
       self.renderSearchResults(searchrequest, searchresults)
