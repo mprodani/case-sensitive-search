@@ -143,7 +143,7 @@ class SearchRequestHandler(BaseRequestHandler):
       search.filter = search.content
     #logging.info('save search.filter:'+search.filter)    
     googleresultslimit = self.request.get('l')
-    logging.info("save search googleresultslimit:"+googleresultslimit)
+    #logging.info("save search googleresultslimit:"+googleresultslimit)
     if googleresultslimit is None or googleresultslimit == '':
       search.googlelimit = _GOOGLELIMIT
     else:
@@ -189,11 +189,11 @@ class SearchRequestHandler(BaseRequestHandler):
     q_search_term = urllib.urlencode({'q' : search.content.encode(_ENCODING)})
     url = _AJAXAPIBASEURL % (q_search_term)
     urlset = set()
-    logging.info("search range start, search.googlelimit::"+str(start)+"-"+str(search.googlelimit))
+    #logging.info("search range start, search.googlelimit::"+str(start)+"-"+str(search.googlelimit))
     for n in range(start, search.googlelimit):
       FUCK = FUCK + 1
       fetchurl = ''.join([url, str(n)])
-      logging.info('FUCK > FETCHURL:'+str(FUCK)+" > "+fetchurl)
+      #logging.info('FUCK > FETCHURL:'+str(FUCK)+" > "+fetchurl)
       result = urlfetch.fetch(fetchurl)
       #logging.info('FETCHURL: fetched')
       results = None
@@ -231,7 +231,7 @@ class SearchRequestHandler(BaseRequestHandler):
       if ord >= search.limit:
         break
     
-    logging.info("re save search.lastresultOrd :"+str(absolute_ord))  
+    #logging.info("re save search.lastresultOrd :"+str(absolute_ord))  
     search.lastresultOrd = absolute_ord
     search.save() 
     return searchResults
