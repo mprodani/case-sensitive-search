@@ -10,20 +10,17 @@ indexes:
 # automatically uploaded to the admin console when you next deploy
 # your application using appcfg.py.
 
-# Unused in query history -- copied from input.
 - kind: Greeting
   properties:
   - name: date
     direction: desc
 
-# Unused in query history -- copied from input.
 - kind: Search
   properties:
   - name: author
   - name: date
     direction: desc
 
-# Unused in query history -- copied from input.
 - kind: Search
   properties:
   - name: content
@@ -31,7 +28,6 @@ indexes:
   - name: start
   - name: date
 
-# Used 38 times in query history.
 - kind: Search
   properties:
   - name: content
@@ -40,20 +36,17 @@ indexes:
   - name: date
     direction: desc
 
-# Unused in query history -- copied from input.
 - kind: Search
   properties:
   - name: search_user
   - name: date
     direction: desc
 
-# Used 24 times in query history.
 - kind: SearchResult
   properties:
   - name: searchref
   - name: searchresult_ord
 
-# Unused in query history -- copied from input.
 - kind: SearchResult
   properties:
   - name: searchresult_user
