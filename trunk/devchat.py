@@ -242,8 +242,11 @@ class SearchRequestHandler(BaseRequestHandler):
     """
     searchresults = []
     now = datetime.datetime.now()
-    searches = db.GqlQuery("SELECT * from Search WHERE content = :1 AND filter = :2 AND start = :3 AND date <= DATETIME("+str(now.year)+", "+str(now.month)+", "+str(now.day)+", "+str(now.hour)+", "+str(now.minute)+", "+str(now.second)+") AND date > DATETIME("+str(now.year)+", "+str(now.month)+", "+str(now.day-_KEEPSEARCHESFORDAYS)+", "+str(now.hour)+", "+str(now.minute)+", "+str(now.second)+") ORDER BY date DESC", 
-                                                      searchRequest.content,searchRequest.filter,searchRequest.start)    
+    past = now - datetime.timedelta(days=15)
+    searches = db.GqlQuery("SELECT * from Search WHERE content = :1 AND filter = :2 AND start = :3 AND date <= DATETIME(" \
+                           +str(now.year)+", "+str(now.month)+", "+str(now.day)+", "+str(now.hour)+", "+str(now.minute)+", "+str(now.second)+") AND date > DATETIME(" \
+                           +str(past.year)+", "+str(past.month)+", "+str(past.day)+", "+str(past.hour)+", "+str(past.minute)+", "+str(past.second) \
+                           +") ORDER BY date DESC", searchRequest.content,searchRequest.filter,searchRequest.start)
     tres = 0
     search = None
     searchresultsdb = None
@@ -284,7 +287,7 @@ class SearchRequestHandler(BaseRequestHandler):
 application = webapp.WSGIApplication(
                                      [('/', MainRequestHandler),
                                       ('/search', SearchRequestHandler)],
-                                     debug=True)
+                                     debug=False)
 
 def main():
   run_wsgi_app(application)
